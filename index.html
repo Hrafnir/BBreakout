@@ -40,7 +40,8 @@
         height: 450px; /* Match canvas height */
         background-color: #1a1a1a;
         /* --- FILSTI FOR BILDE --- */
-        background-image: url(image/BBreakout.png); /* <<< TODO: SET CORRECT PATH! */
+        /* ====> HUSK Å SETTE RIKTIG STI TIL BILDET DITT HER! <==== */
+        background-image: url('image/BBreakout.png');
         background-size: cover;
         background-position: center;
         display: flex;
@@ -141,8 +142,7 @@
 
 </div>
 
-<audio id="backgroundMusic" loop preload="auto">
-    <source src="audio/BBreakout.mp3" type="audio/mpeg">
+<audio id="backgroundMusic" loop preload="auto"> <source src="audio/BBreakout.mp3" type="audio/mpeg">
     Nettleseren din støtter ikke audio-elementet.
 </audio>
 
@@ -161,7 +161,7 @@
     const volumeSlider = document.getElementById('volumeSlider');
     const muteButton = document.getElementById('muteButton');
 
-    // --- Spillkonstanter og Variabler (samme som før) ---
+    // --- Spillkonstanter og Variabler ---
     const PADDLE_HEIGHT = 15;
     const PADDLE_BASE_WIDTH = 100;
     const PADDLE_SPEED = 8;
@@ -178,7 +178,7 @@
     const POWERUP_SPEED = 1.5;
     const POWERUP_SIZE = 15;
 
-    // Farger (samme som før)
+    // Farger
     const BRICK_COLORS = ["#FF5733", "#FF8D33", "#FFC300", "#DAF7A6", "#33FF57", "#33D4FF", "#3361FF", "#8333FF"];
     const PADDLE_COLOR = { main: '#0095DD', accent: '#00CFFF' };
     const BALL_COLOR = { main: '#FFFFFF', accent: '#DDDDDD' };
@@ -205,105 +205,121 @@
     let activePowerups = { largerPaddle: null, slowBall: null };
     let animationFrameId = null; // To control the game loop
 
-    // Powerup Typer (samme som før)
+    // Powerup Typer
     const PowerupType = { LARGER_PADDLE: 'LARGER_PADDLE', MULTI_BALL: 'MULTI_BALL', SLOW_BALL: 'SLOW_BALL', EXTRA_LIFE: 'EXTRA_LIFE' };
 
     // --- Lydkontroll ---
     function setupAudioControls() {
-        // Initial volume setup
-        const initialVolume = 0.5; // Start at 50% volume
-        backgroundMusic.volume = initialVolume;
-        volumeSlider.value = initialVolume * 100;
+        console.log("Setting up audio controls..."); // Logg for å se at funksjonen kjører
+        try {
+            // Initial volume setup
+            const initialVolume = 0.5; // Start at 50% volume
+            backgroundMusic.volume = initialVolume;
+            volumeSlider.value = initialVolume * 100;
 
-        // Mute button initial text
-        muteButton.textContent = backgroundMusic.muted ? "Unmute" : "Mute";
-
-        // Volume Slider Event
-        volumeSlider.addEventListener('input', (e) => {
-            const newVolume = e.target.value / 100;
-            backgroundMusic.volume = newVolume;
-            // If user adjusts volume, unmute if muted
-            if (newVolume > 0 && backgroundMusic.muted) {
-                backgroundMusic.muted = false;
-                muteButton.textContent = "Mute";
-            } else if (newVolume === 0 && !backgroundMusic.muted) {
-                 backgroundMusic.muted = true; // Mute if slider goes to 0
-                 muteButton.textContent = "Unmute";
-            }
-        });
-
-        // Mute Button Event
-        muteButton.addEventListener('click', () => {
-            backgroundMusic.muted = !backgroundMusic.muted;
+            // Mute button initial text
             muteButton.textContent = backgroundMusic.muted ? "Unmute" : "Mute";
-             // Optional: If unmuting and volume is 0, set a default volume
-            if (!backgroundMusic.muted && backgroundMusic.volume === 0) {
-                const defaultVolume = 0.5;
-                backgroundMusic.volume = defaultVolume;
-                volumeSlider.value = defaultVolume * 100;
-            }
-        });
+
+            // Fjern gamle listeners før vi legger til nye (for sikkerhets skyld)
+            volumeSlider.oninput = null;
+            muteButton.onclick = null;
+
+            // Volume Slider Event
+            volumeSlider.oninput = (e) => {
+                const newVolume = e.target.value / 100;
+                backgroundMusic.volume = newVolume;
+                console.log("Volume set to:", newVolume); // Logg volumendring
+                if (newVolume > 0 && backgroundMusic.muted) {
+                    backgroundMusic.muted = false;
+                    muteButton.textContent = "Mute";
+                    console.log("Unmuted due to volume change.");
+                } else if (newVolume === 0 && !backgroundMusic.muted) {
+                     backgroundMusic.muted = true; // Mute if slider goes to 0
+                     muteButton.textContent = "Unmute";
+                     console.log("Muted due to volume set to 0.");
+                }
+            };
+
+            // Mute Button Event
+            muteButton.onclick = () => {
+                backgroundMusic.muted = !backgroundMusic.muted;
+                muteButton.textContent = backgroundMusic.muted ? "Unmute" : "Mute";
+                console.log("Muted toggled. Now:", backgroundMusic.muted); // Logg mute-status
+                if (!backgroundMusic.muted && backgroundMusic.volume === 0) {
+                    const defaultVolume = 0.5;
+                    backgroundMusic.volume = defaultVolume;
+                    volumeSlider.value = defaultVolume * 100;
+                    console.log("Unmuted and volume was 0, reset to:", defaultVolume);
+                }
+            };
+        } catch (error) {
+             console.error("Error setting up audio controls:", error);
+        }
     }
 
     // --- Start Spillet Funksjon ---
     function startGame() {
+        console.log("Attempting to start game..."); // Logg startforsøk
         startScreen.classList.add('hidden'); // Hide start screen
         canvas.classList.remove('hidden');   // Show canvas
         uiContainer.classList.remove('hidden'); // Show UI controls
 
-        // Attempt to play music (might require user interaction promise handling in complex scenarios)
-        backgroundMusic.play().catch(error => {
-            console.warn("Audio play failed, likely due to browser policy requiring user interaction first.", error);
-            // Optionally provide feedback to the user that audio couldn't start automatically
-        });
+        // Setup audio controls *before* trying to play
+        setupAudioControls();
 
-        setupAudioControls(); // Setup listeners for volume/mute
+        // Attempt to play music
+        console.log("Attempting to play background music..."); // Logg avspillingsforsøk
+        const playPromise = backgroundMusic.play();
+
+        if (playPromise !== undefined) {
+            playPromise.then(_ => {
+                // Playback started successfully or is expected to start
+                console.log("Audio playback initiated successfully.");
+            }).catch(error => {
+                // Log errors specifically
+                console.error("Audio play failed:", error);
+                // Display a user-friendly message perhaps?
+                // alert("Kunne ikke starte bakgrunnsmusikken automatisk. Sjekk nettleserinnstillinger eller konsollen (F12) for feil.");
+            });
+        } else {
+             console.warn("Audio play() did not return a promise (older browser?).");
+             // Might need alternative ways to handle audio on very old browsers
+        }
+
+        // Initialize level and start game loop regardless of audio success/failure
         initializeLevel(currentLevel);
         gameRunning = true;
-        gameLoop(); // Start the actual game loop
+        if (!animationFrameId) { // Avoid multiple loops if start is clicked multiple times
+             gameLoop();
+        }
     }
 
     // --- Event Listener for Startknapp ---
     startButton.addEventListener('click', startGame);
 
 
-    // --- Initialisering (samme som før, men kalt av startGame/levelComplete) ---
+    // --- Initialisering ---
     function initializeLevel(level) {
+        console.log("Initializing level:", level);
         gameRunning = false; // Pause briefly while setting up
-        // Reset game elements
         paddleWidth = PADDLE_BASE_WIDTH;
         paddleX = (canvas.width - paddleWidth) / 2;
-        paddleLastX = paddleX;
-        paddleVelX = 0;
+        paddleLastX = paddleX; paddleVelX = 0;
         balls = [];
         createBall(canvas.width / 2, canvas.height - PADDLE_HEIGHT - BALL_RADIUS - 5);
         initializeBricks();
-        powerups = [];
-        particles = [];
-        // Clear active powerup timeouts (important for level transitions)
+        powerups = []; particles = [];
         if (activePowerups.largerPaddle) clearTimeout(activePowerups.largerPaddle);
         if (activePowerups.slowBall) clearTimeout(activePowerups.slowBall);
         activePowerups = { largerPaddle: null, slowBall: null };
-
         updateUI();
-        // Short delay before starting ball movement if needed, or let gameLoop handle it
-        // setTimeout(() => { gameRunning = true; }, 500); // Optional small delay
-         gameRunning = true; // Ready to run in gameLoop
+        gameRunning = true; // Ready to run in gameLoop
     }
 
-    // --- Resten av spillogikken (createBall, initializeBricks, Input Handlers, collisionDetection, Powerups, Particles, Tegnefunksjoner, movePaddle, moveBalls, movePowerups, updateUI, gameOver, levelComplete) ---
-    // --- INNSETT ALL SPILLOGIKK HER FRA FORRIGE VERSJON ---
-    // --- (Funksjonene fra "// --- Initialisering ---" ned til før "// --- Hoved Spill-Loop ---") ---
-    // ... (Lim inn koden for createBall, initializeBricks, keyDownHandler, etc. her) ...
+    // --- Spillogikk Funksjoner (createBall, initializeBricks, etc.) ---
      function createBall(x, y, dx = 2, dy = -2) {
         const speedMultiplier = 1 + (currentLevel - 1) * 0.1;
-        balls.push({
-            x: x, y: y,
-            dx: dx * speedMultiplier * (Math.random() < 0.5 ? 1 : -1),
-            dy: dy * speedMultiplier,
-            radius: BALL_RADIUS,
-            baseSpeed: Math.sqrt(dx*dx + dy*dy) * speedMultiplier
-        });
+        balls.push({ x: x, y: y, dx: dx * speedMultiplier * (Math.random() < 0.5 ? 1 : -1), dy: dy * speedMultiplier, radius: BALL_RADIUS, baseSpeed: Math.sqrt(dx*dx + dy*dy) * speedMultiplier });
     }
      function initializeBricks() {
         bricks = []; bricksRemaining = 0;
@@ -317,13 +333,13 @@
             }
         }
     }
-     document.addEventListener("keydown", keyDownHandler, false);
+    document.addEventListener("keydown", keyDownHandler, false);
     document.addEventListener("keyup", keyUpHandler, false);
     document.addEventListener("mousemove", mouseMoveHandler, false);
-     function keyDownHandler(e) { if(e.key == "Right" || e.key == "ArrowRight") rightPressed = true; else if(e.key == "Left" || e.key == "ArrowLeft") leftPressed = true; }
+    function keyDownHandler(e) { if(e.key == "Right" || e.key == "ArrowRight") rightPressed = true; else if(e.key == "Left" || e.key == "ArrowLeft") leftPressed = true; }
     function keyUpHandler(e) { if(e.key == "Right" || e.key == "ArrowRight") rightPressed = false; else if(e.key == "Left" || e.key == "ArrowLeft") leftPressed = false; }
     function mouseMoveHandler(e) { const rect = canvas.getBoundingClientRect(); const root = document.documentElement; let relativeX = e.clientX - rect.left - root.scrollLeft; if (relativeX > paddleWidth / 2 && relativeX < canvas.width - paddleWidth / 2) { paddleX = relativeX - paddleWidth / 2; } else if (relativeX <= paddleWidth / 2) { paddleX = 0; } else { paddleX = canvas.width - paddleWidth; } }
-     function collisionDetection() {
+    function collisionDetection() {
         balls.forEach((ball, ballIndex) => {
             for(let c = 0; c < BRICK_COLUMN_COUNT; c++) {
                 for(let r = 0; r < BRICK_ROW_COUNT; r++) {
@@ -333,35 +349,38 @@
                             ball.dy = -ball.dy; b.status = 0; score += 10 * currentLevel; bricksRemaining--;
                             createParticles(ball.x, ball.y, b.color);
                             if (Math.random() < POWERUP_CHANCE) createPowerup(b.x + BRICK_WIDTH / 2, b.y + BRICK_HEIGHT / 2);
-                            if(bricksRemaining <= 0) levelComplete();
                             updateUI(); // Update score immediately
-                            return;
+                            if(bricksRemaining <= 0) {
+                                levelComplete(); // Call level complete check here
+                                return; // Exit loops after level complete is triggered
+                            }
+                            return; // Exit loops after first hit for this ball
                         } } } } });
         powerups.forEach((powerup, index) => {
             if (powerup.y + POWERUP_SIZE > canvas.height - PADDLE_HEIGHT && powerup.x > paddleX && powerup.x < paddleX + paddleWidth) {
                 activatePowerup(powerup.type); powerups.splice(index, 1);
             } });
     }
-     function createPowerup(x, y) { const types = Object.values(PowerupType); const type = types[Math.floor(Math.random() * types.length)]; powerups.push({ x: x, y: y, type: type, color: POWERUP_COLORS[type] || '#FFFFFF' }); }
+    function createPowerup(x, y) { const types = Object.values(PowerupType); const type = types[Math.floor(Math.random() * types.length)]; powerups.push({ x: x, y: y, type: type, color: POWERUP_COLORS[type] || '#FFFFFF' }); }
     function activatePowerup(type) {
         switch(type) {
-            case PowerupType.LARGER_PADDLE: if (activePowerups.largerPaddle) clearTimeout(activePowerups.largerPaddle); paddleWidth = PADDLE_BASE_WIDTH * 1.5; activePowerups.largerPaddle = setTimeout(() => { paddleWidth = PADDLE_BASE_WIDTH; activePowerups.largerPaddle = null; }, 10000); break;
-            case PowerupType.MULTI_BALL: if (balls.length < 5) { const origin = balls[Math.floor(Math.random()*balls.length)]; createBall(origin.x, origin.y, origin.dx + (Math.random()-0.5)*2, -Math.abs(origin.dy)); if (balls.length < 5) createBall(origin.x, origin.y, origin.dx + (Math.random()-0.5)*2, -Math.abs(origin.dy)); } break;
-            case PowerupType.SLOW_BALL: if (activePowerups.slowBall) clearTimeout(activePowerups.slowBall); balls.forEach(b => { b.dx *= 0.7; b.dy *= 0.7; }); activePowerups.slowBall = setTimeout(() => { balls.forEach(b => { const speed = Math.sqrt(b.dx*b.dx + b.dy*b.dy); const scale = b.baseSpeed / speed; if (speed > 0.1) { b.dx *= scale; b.dy *= scale; } else { b.dx = (Math.random() < 0.5 ? 1 : -1) * b.baseSpeed * 0.7; b.dy = -b.baseSpeed * 0.7; }}); activePowerups.slowBall = null; }, 8000); break;
+            case PowerupType.LARGER_PADDLE: if (activePowerups.largerPaddle) clearTimeout(activePowerups.largerPaddle); paddleWidth = PADDLE_BASE_WIDTH * 1.5; activePowerups.largerPaddle = setTimeout(() => { paddleWidth = PADDLE_BASE_WIDTH; activePowerups.largerPaddle = null; if(paddleX + PADDLE_BASE_WIDTH > canvas.width) paddleX = canvas.width - PADDLE_BASE_WIDTH; }, 10000); break;
+            case PowerupType.MULTI_BALL: if (balls.length < 5) { const origin = balls.length > 0 ? balls[Math.floor(Math.random()*balls.length)] : {x: paddleX + paddleWidth/2, y: canvas.height - PADDLE_HEIGHT - BALL_RADIUS - 5, dx: 2, dy: -2}; createBall(origin.x, origin.y, origin.dx + (Math.random()-0.5)*2, -Math.abs(origin.dy || -2)); if (balls.length < 5) createBall(origin.x, origin.y, origin.dx + (Math.random()-0.5)*2, -Math.abs(origin.dy || -2)); } break;
+            case PowerupType.SLOW_BALL: if (activePowerups.slowBall) clearTimeout(activePowerups.slowBall); balls.forEach(b => { b.dx *= 0.7; b.dy *= 0.7; }); activePowerups.slowBall = setTimeout(() => { balls.forEach(b => { const speed = Math.sqrt(b.dx*b.dx + b.dy*b.dy); const targetSpeed = b.baseSpeed; if (speed > 0.1) { const scale = targetSpeed / speed; b.dx *= scale; b.dy *= scale;} else { b.dx = (Math.random() < 0.5 ? 1 : -1) * targetSpeed * 0.7; b.dy = -targetSpeed * 0.7; }}); activePowerups.slowBall = null; }, 8000); break;
             case PowerupType.EXTRA_LIFE: if (lives < 5) lives++; updateUI(); break;
         }
         if (paddleX + paddleWidth > canvas.width) paddleX = canvas.width - paddleWidth;
     }
-     function createParticles(x, y, color) { const count = 5 + Math.floor(Math.random() * 5); for (let i = 0; i < count; i++) particles.push({ x: x, y: y, dx: (Math.random() - 0.5) * 4, dy: (Math.random() - 0.5) * 4, radius: Math.random() * 2 + 1, lifespan: PARTICLE_LIFESPAN, color: color }); }
+    function createParticles(x, y, color) { const count = 5 + Math.floor(Math.random() * 5); for (let i = 0; i < count; i++) particles.push({ x: x, y: y, dx: (Math.random() - 0.5) * 4, dy: (Math.random() - 0.5) * 4, radius: Math.random() * 2 + 1, lifespan: PARTICLE_LIFESPAN, color: color }); }
     function updateParticles() { for (let i = particles.length - 1; i >= 0; i--) { let p = particles[i]; p.x += p.dx; p.y += p.dy; p.lifespan--; p.dx *= 0.98; p.dy *= 0.98; p.dy += 0.05; if (p.lifespan <= 0) particles.splice(i, 1); } }
-     function drawBackground() { const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height); gradient.addColorStop(0, BACKGROUND_GRADIENT[0]); gradient.addColorStop(0.5, BACKGROUND_GRADIENT[1]); gradient.addColorStop(1, BACKGROUND_GRADIENT[2]); ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    function drawBackground() { const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height); gradient.addColorStop(0, BACKGROUND_GRADIENT[0]); gradient.addColorStop(0.5, BACKGROUND_GRADIENT[1]); gradient.addColorStop(1, BACKGROUND_GRADIENT[2]); ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvas.width, canvas.height); }
     function drawBalls() { balls.forEach(ball => { ctx.beginPath(); const gradient = ctx.createRadialGradient(ball.x - ball.radius*0.3, ball.y - ball.radius*0.3, ball.radius*0.1, ball.x, ball.y, ball.radius); gradient.addColorStop(0, BALL_COLOR.accent); gradient.addColorStop(1, BALL_COLOR.main); ctx.fillStyle = gradient; ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2); ctx.fill(); ctx.closePath(); }); }
     function drawPaddle() { ctx.beginPath(); const gradient = ctx.createLinearGradient(paddleX, canvas.height - PADDLE_HEIGHT, paddleX, canvas.height); gradient.addColorStop(0, PADDLE_COLOR.accent); gradient.addColorStop(1, PADDLE_COLOR.main); ctx.fillStyle = gradient; const r = 5; ctx.moveTo(paddleX + r, canvas.height - PADDLE_HEIGHT); ctx.lineTo(paddleX + paddleWidth - r, canvas.height - PADDLE_HEIGHT); ctx.quadraticCurveTo(paddleX + paddleWidth, canvas.height - PADDLE_HEIGHT, paddleX + paddleWidth, canvas.height - PADDLE_HEIGHT + r); ctx.lineTo(paddleX + paddleWidth, canvas.height - r); ctx.quadraticCurveTo(paddleX + paddleWidth, canvas.height, paddleX + paddleWidth - r, canvas.height); ctx.lineTo(paddleX + r, canvas.height); ctx.quadraticCurveTo(paddleX, canvas.height, paddleX, canvas.height - r); ctx.lineTo(paddleX, canvas.height - PADDLE_HEIGHT + r); ctx.quadraticCurveTo(paddleX, canvas.height - PADDLE_HEIGHT, paddleX + r, canvas.height - PADDLE_HEIGHT); ctx.fill(); ctx.closePath(); }
     function drawBricks() { for(let c = 0; c < BRICK_COLUMN_COUNT; c++) { for(let r = 0; r < BRICK_ROW_COUNT; r++) { if(bricks[c][r].status == 1) { let b = bricks[c][r]; ctx.beginPath(); ctx.rect(b.x, b.y, BRICK_WIDTH, BRICK_HEIGHT); const grad = ctx.createLinearGradient(b.x, b.y, b.x, b.y + BRICK_HEIGHT); grad.addColorStop(0, lightenColor(b.color, 20)); grad.addColorStop(1, darkenColor(b.color, 20)); ctx.fillStyle = grad; ctx.fill(); ctx.strokeStyle = darkenColor(b.color, 40); ctx.lineWidth = 1; ctx.stroke(); ctx.closePath(); } } } }
     function drawParticles() { particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.fillStyle = p.color; ctx.globalAlpha = Math.max(0, p.lifespan / PARTICLE_LIFESPAN); ctx.fill(); ctx.closePath(); }); ctx.globalAlpha = 1.0; }
     function drawPowerups() { powerups.forEach(p => { ctx.beginPath(); ctx.rect(p.x - POWERUP_SIZE / 2, p.y - POWERUP_SIZE / 2, POWERUP_SIZE, POWERUP_SIZE); ctx.fillStyle = p.color; ctx.fill(); ctx.font = "bold 12px Arial"; ctx.fillStyle = "#FFFFFF"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; let s = '?'; if (p.type === PowerupType.LARGER_PADDLE) s = 'W'; else if (p.type === PowerupType.MULTI_BALL) s = 'M'; else if (p.type === PowerupType.SLOW_BALL) s = 'S'; else if (p.type === PowerupType.EXTRA_LIFE) s = 'L'; ctx.fillText(s, p.x, p.y + 1); ctx.closePath(); }); ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; }
     function lightenColor(hex, percent) { hex = hex.replace(/^\s*#|\s*$/g, ''); if(hex.length == 3) hex = hex.replace(/(.)/g, '$1$1'); let r=parseInt(hex.substr(0,2),16), g=parseInt(hex.substr(2,2),16), b=parseInt(hex.substr(4,2),16); let f=1+(percent/100); r=Math.min(255,Math.round(r*f)); g=Math.min(255,Math.round(g*f)); b=Math.min(255,Math.round(b*f)); return "#"+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1); } function darkenColor(hex, percent) { return lightenColor(hex, -percent); }
-     function movePaddle() { paddleLastX = paddleX; if(rightPressed && paddleX < canvas.width - paddleWidth) paddleX += PADDLE_SPEED; else if(leftPressed && paddleX > 0) paddleX -= PADDLE_SPEED; if (paddleX < 0) paddleX = 0; if (paddleX + paddleWidth > canvas.width) paddleX = canvas.width - paddleWidth; paddleVelX = paddleX - paddleLastX; }
+    function movePaddle() { paddleLastX = paddleX; if(rightPressed && paddleX < canvas.width - paddleWidth) paddleX += PADDLE_SPEED; else if(leftPressed && paddleX > 0) paddleX -= PADDLE_SPEED; if (paddleX < 0) paddleX = 0; if (paddleX + paddleWidth > canvas.width) paddleX = canvas.width - paddleWidth; paddleVelX = paddleX - paddleLastX; }
     function moveBalls() {
         balls.forEach((ball, index) => {
             if(ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) { ball.dx = -ball.dx; createParticles(ball.x, ball.y, '#aaa'); }
@@ -371,11 +390,11 @@
                     ball.dy = -ball.dy; let hitPos = (ball.x - (paddleX + paddleWidth / 2)) / (paddleWidth / 2); hitPos = Math.max(-1, Math.min(1, hitPos));
                     const angleFactor = 1.5; ball.dx = ball.dx * 0.8 + hitPos * angleFactor * Math.abs(ball.dy);
                     const spinFactor = 0.3; ball.dx += paddleVelX * spinFactor;
-                    const speed = Math.sqrt(ball.dx*ball.dx + ball.dy*ball.dy); const maxSpeed = ball.baseSpeed * 1.5;
+                    const speed = Math.sqrt(ball.dx*ball.dx + ball.dy*ball.dy); const maxSpeed = ball.baseSpeed * 1.5; const minSpeed = ball.baseSpeed * 0.8;
                     if (speed > maxSpeed) { const scale = maxSpeed / speed; ball.dx *= scale; ball.dy *= scale; }
-                    else if (speed < ball.baseSpeed * 0.8 && speed > 0.1) { const scale = (ball.baseSpeed * 0.8) / speed; ball.dx *= scale; ball.dy *= scale; }
+                    else if (speed < minSpeed && speed > 0.1) { const scale = minSpeed / speed; ball.dx *= scale; ball.dy *= scale; }
                     createParticles(ball.x, ball.y+ball.radius, PADDLE_COLOR.main);
-                } else if (ball.y + ball.radius > canvas.height) {
+                } else if (ball.y + ball.radius >= canvas.height) { // Ensure it's actually below the canvas bottom
                      balls.splice(index, 1);
                      if (balls.length === 0) {
                          lives--; updateUI();
@@ -385,27 +404,28 @@
             ball.x += ball.dx; ball.y += ball.dy;
         }); }
     function movePowerups() { for (let i = powerups.length - 1; i >= 0; i--) { powerups[i].y += POWERUP_SPEED; if (powerups[i].y > canvas.height + POWERUP_SIZE) powerups.splice(i, 1); } }
-     function updateUI() { scoreElement.textContent = "Poeng: " + score; livesElement.textContent = "Liv: " + lives; levelElement.textContent = "Nivå: " + currentLevel; }
+    function updateUI() { scoreElement.textContent = "Poeng: " + score; livesElement.textContent = "Liv: " + lives; levelElement.textContent = "Nivå: " + currentLevel; }
     function gameOver() {
+        console.log("Game Over triggered.");
         gameRunning = false;
-        if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop the loop
-        backgroundMusic.pause(); // Stop music
-         setTimeout(() => { // Delay slightly to ensure canvas updates
+        if (animationFrameId) cancelAnimationFrame(animationFrameId); animationFrameId = null;
+        try { backgroundMusic.pause(); } catch(e) { console.warn("Error pausing music:", e); }
+        setTimeout(() => {
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.font = "40px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "center";
             ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2 - 20);
             ctx.font = "20px Arial"; ctx.fillStyle = "white";
             ctx.fillText(`Poeng: ${score} | Nivå: ${currentLevel}`, canvas.width/2, canvas.height/2 + 20);
-            // Optional: Add instructions to refresh (F5)
-             ctx.fillText("Trykk F5 for å prøve igjen", canvas.width/2, canvas.height/2 + 60);
-         }, 50); // 50ms delay
+            ctx.fillText("Trykk F5 for å prøve igjen", canvas.width/2, canvas.height/2 + 60);
+        }, 50);
     }
     function levelComplete() {
-        gameRunning = false; // Stop game logic
-        if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop the loop for redraw
-        balls.forEach(ball => { ball.dx = 0; ball.dy = 0; }); // Stop balls
+        console.log("Level Complete triggered.");
+        gameRunning = false;
+        if (animationFrameId) cancelAnimationFrame(animationFrameId); animationFrameId = null;
+        balls.forEach(ball => { ball.dx = 0; ball.dy = 0; });
 
-         setTimeout(() => { // Delay slightly for effect
+        setTimeout(() => {
             ctx.fillStyle = 'rgba(0, 80, 0, 0.7)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.font = "40px Arial"; ctx.fillStyle = "lime"; ctx.textAlign = "center";
             ctx.fillText(`Nivå ${currentLevel} fullført!`, canvas.width/2, canvas.height/2 - 20);
@@ -413,22 +433,20 @@
             ctx.fillText(`Poeng: ${score}`, canvas.width/2, canvas.height/2 + 20);
             ctx.fillText("Gjør klar for neste nivå...", canvas.width/2, canvas.height/2 + 50);
 
-            // Go to next level after a pause
             setTimeout(() => {
                 currentLevel++;
-                initializeLevel(currentLevel); // Setup next level (this sets gameRunning = true)
-                if (gameRunning) { // Ensure initializeLevel succeeded
-                   gameLoop(); // Start the loop again for the new level
-                }
-            }, 3000); // 3 seconds pause
-         }, 50); // 50ms delay for drawing the completion screen
+                initializeLevel(currentLevel);
+                if (gameRunning) { gameLoop(); } // Start loop for new level
+            }, 3000);
+         }, 50);
     }
     // --- Hoved Spill-Loop ---
     function gameLoop() {
         if (!gameRunning) {
+             // Sikrer at loopen stopper helt hvis gameRunning settes til false
              if (animationFrameId) cancelAnimationFrame(animationFrameId);
              animationFrameId = null;
-             return; // Exit if game stopped
+             return;
         }
 
         // 1. Oppdater spillstatus
@@ -436,7 +454,10 @@
         moveBalls();
         movePowerups();
         updateParticles();
-        collisionDetection(); // Sjekkes etter bevegelse
+        collisionDetection(); // Inneholder sjekk for levelComplete
+
+        // Sikrer at vi ikke tegner mer hvis levelComplete ble kalt i collisionDetection
+        if (!gameRunning) return;
 
         // 2. Tegn alt
         drawBackground();
@@ -445,16 +466,14 @@
         drawPowerups();
         drawPaddle();
         drawBalls();
-        // UI oppdateres via updateUI() ved endringer
 
         // 3. Neste frame
-        animationFrameId = requestAnimationFrame(gameLoop); // Store the ID
+        animationFrameId = requestAnimationFrame(gameLoop);
     }
 
-    // --- Initial Setup (uten å starte spillet) ---
-    // updateUI(); // Kan sette initiell UI tekst hvis UI er synlig fra start
-    // setupAudioControls(); // Kan settes opp her, men bedre etter start for volum?
-
+    // --- Initial Setup (Kjøres når scriptet lastes, men starter ikke spillet) ---
+    console.log("Script loaded. Waiting for start button click.");
+    // Ingen funksjonskall her som starter loopen
 
 </script>
 

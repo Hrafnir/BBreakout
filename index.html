@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>BBreakout - Enhanced HTML Arkanoid</title>
+<style>
+    body {
+        background: #222;
+        margin: 0;
+        padding: 0;
+        display: flex; /* Use flexbox for centering */
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        font-family: Arial, sans-serif;
+        color: #fff;
+        overflow: hidden; /* Prevent scrollbars */
+    }
+    #gameContainer {
+        position: relative; /* Container for positioning elements */
+        width: 600px; /* Match canvas width */
+        height: 500px; /* Adjust height to include controls */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    canvas {
+        display: block; /* Will be shown after start */
+        /* background set in JS */
+        border: 1px solid #555; /* Add a border for definition */
+    }
+    .hidden {
+        display: none !important; /* Helper class to hide elements */
+    }
+    #startScreen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 600px; /* Match canvas width */
+        height: 450px; /* Match canvas height */
+        background-color: #1a1a1a;
+        /* --- FILSTI FOR BILDE --- */
+        background-image: url('PATH/TO/YOUR/IMAGES/BBreakout.png'); /* <<< TODO: SET CORRECT PATH! */
+        background-size: cover;
+        background-position: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 10; /* Ensure it's on top */
+        border: 1px solid #555;
+    }
+    #startButton {
+        padding: 15px 30px;
+        font-size: 24px;
+        cursor: pointer;
+        background-color: #4CAF50; /* Green */
+        color: white;
+        border: none;
+        border-radius: 5px;
+        box-shadow: 0 4px #999;
+        transition: background-color 0.2s, box-shadow 0.2s, transform 0.2s;
+        margin-top: 250px; /* Adjust as needed based on image */
+    }
+    #startButton:hover {
+        background-color: #45a049;
+    }
+     #startButton:active {
+        background-color: #3e8e41;
+        box-shadow: 0 2px #666;
+        transform: translateY(2px);
+    }
+
+    #uiContainer {
+        display: flex; /* Use flexbox for UI layout */
+        justify-content: space-between; /* Space out elements */
+        align-items: center;
+        width: 100%; /* Span width of container */
+        padding: 8px 10px; /* Add some padding */
+        background: rgba(0,0,0,0.6);
+        box-sizing: border-box; /* Include padding in width */
+        border-bottom-left-radius: 5px;
+        border-bottom-right-radius: 5px;
+         margin-top: -1px; /* Overlap border slightly */
+    }
+    #gameInfo {
+        display: flex;
+        gap: 15px; /* Space between info items */
+    }
+     #audioControls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+     }
+     #audioControls label {
+         font-size: 14px;
+         margin-right: -5px;
+     }
+    #volumeSlider {
+        width: 80px; /* Adjust slider width */
+        cursor: pointer;
+        accent-color: #0095DD; /* Style slider color */
+    }
+    #muteButton {
+        padding: 5px 10px;
+        font-size: 12px;
+        cursor: pointer;
+        background-color: #0077AA;
+        color: white;
+        border: none;
+        border-radius: 3px;
+         min-width: 60px; /* Keep button size consistent */
+         text-align: center;
+    }
+     #muteButton:hover {
+         background-color: #005588;
+     }
+</style>
+</head>
+<body>
+
+<div id="gameContainer">
+    <div id="startScreen">
+        <button id="startButton">Start Spillet</button>
+    </div>
+
+    <canvas id="gameCanvas" width="600" height="450" class="hidden"></canvas>
+
+    <div id="uiContainer" class="hidden">
+        <div id="gameInfo">
+            <span id="score">Poeng: 0</span>
+            <span id="lives">Liv: 3</span>
+            <span id="level">Nivå: 1</span>
+        </div>
+        <div id="audioControls">
+             <label for="volumeSlider">Volum:</label>
+            <input type="range" id="volumeSlider" min="0" max="100" value="50">
+            <button id="muteButton">Mute</button>
+        </div>
+    </div>
+
+</div>
+
+<audio id="backgroundMusic" loop /* preload="auto" */> <source src="PATH/TO/YOUR/AUDIO/BBreakout.mp3" type="audio/mpeg"> Nettleseren din støtter ikke audio-elementet.
+</audio>
+
+
+<script>
+    // --- DOM Element References ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreElement = document.getElementById('score');
+    const livesElement = document.getElementById('lives');
+    const levelElement = document.getElementById('level');
+    const startScreen = document.getElementById('startScreen');
+    const startButton = document.getElementById('startButton');
+    const uiContainer = document.getElementById('uiContainer');
+    const backgroundMusic = document.getElementById('backgroundMusic');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const muteButton = document.getElementById('muteButton');
+
+    // --- Spillkonstanter og Variabler (samme som før) ---
+    const PADDLE_HEIGHT = 15;
+    const PADDLE_BASE_WIDTH = 100;
+    const PADDLE_SPEED = 8;
+    const BALL_RADIUS = 8;
+    const BRICK_ROW_COUNT = 5;
+    const BRICK_COLUMN_COUNT = 8;
+    const BRICK_WIDTH = 60;
+    const BRICK_HEIGHT = 20;
+    const BRICK_PADDING = 5;
+    const BRICK_OFFSET_TOP = 40;
+    const BRICK_OFFSET_LEFT = 35;
+    const PARTICLE_LIFESPAN = 30;
+    const POWERUP_CHANCE = 0.2;
+    const POWERUP_SPEED = 1.5;
+    const POWERUP_SIZE = 15;
+
+    // Farger (samme som før)
+    const BRICK_COLORS = ["#FF5733", "#FF8D33", "#FFC300", "#DAF7A6", "#33FF57", "#33D4FF", "#3361FF", "#8333FF"];
+    const PADDLE_COLOR = { main: '#0095DD', accent: '#00CFFF' };
+    const BALL_COLOR = { main: '#FFFFFF', accent: '#DDDDDD' };
+    const BACKGROUND_GRADIENT = ['#111', '#333', '#111'];
+    const PARTICLE_COLORS = ["#FFA07A", "#FF7F50", "#FF6347", "#FF4500"];
+    const POWERUP_COLORS = { 'LARGER_PADDLE': '#33FF57', 'MULTI_BALL': '#FFC300', 'SLOW_BALL': '#33D4FF', 'EXTRA_LIFE': '#FF5733' };
+
+    // Spillstatus
+    let paddleWidth = PADDLE_BASE_WIDTH;
+    let paddleX = (canvas.width - paddleWidth) / 2;
+    let paddleLastX = paddleX;
+    let paddleVelX = 0;
+    let rightPressed = false;
+    let leftPressed = false;
+    let balls = [];
+    let bricks = [];
+    let particles = [];
+    let powerups = [];
+    let score = 0;
+    let lives = 3;
+    let currentLevel = 1;
+    let gameRunning = false; // Game starts paused
+    let bricksRemaining = 0;
+    let activePowerups = { largerPaddle: null, slowBall: null };
+    let animationFrameId = null; // To control the game loop
+
+    // Powerup Typer (samme som før)
+    const PowerupType = { LARGER_PADDLE: 'LARGER_PADDLE', MULTI_BALL: 'MULTI_BALL', SLOW_BALL: 'SLOW_BALL', EXTRA_LIFE: 'EXTRA_LIFE' };
+
+    // --- Lydkontroll ---
+    function setupAudioControls() {
+        // Initial volume setup
+        const initialVolume = 0.5; // Start at 50% volume
+        backgroundMusic.volume = initialVolume;
+        volumeSlider.value = initialVolume * 100;
+
+        // Mute button initial text
+        muteButton.textContent = backgroundMusic.muted ? "Unmute" : "Mute";
+
+        // Volume Slider Event
+        volumeSlider.addEventListener('input', (e) => {
+            const newVolume = e.target.value / 100;
+            backgroundMusic.volume = newVolume;
+            // If user adjusts volume, unmute if muted
+            if (newVolume > 0 && backgroundMusic.muted) {
+                backgroundMusic.muted = false;
+                muteButton.textContent = "Mute";
+            } else if (newVolume === 0 && !backgroundMusic.muted) {
+                 backgroundMusic.muted = true; // Mute if slider goes to 0
+                 muteButton.textContent = "Unmute";
+            }
+        });
+
+        // Mute Button Event
+        muteButton.addEventListener('click', () => {
+            backgroundMusic.muted = !backgroundMusic.muted;
+            muteButton.textContent = backgroundMusic.muted ? "Unmute" : "Mute";
+             // Optional: If unmuting and volume is 0, set a default volume
+            if (!backgroundMusic.muted && backgroundMusic.volume === 0) {
+                const defaultVolume = 0.5;
+                backgroundMusic.volume = defaultVolume;
+                volumeSlider.value = defaultVolume * 100;
+            }
+        });
+    }
+
+    // --- Start Spillet Funksjon ---
+    function startGame() {
+        startScreen.classList.add('hidden'); // Hide start screen
+        canvas.classList.remove('hidden');   // Show canvas
+        uiContainer.classList.remove('hidden'); // Show UI controls
+
+        // Attempt to play music (might require user interaction promise handling in complex scenarios)
+        backgroundMusic.play().catch(error => {
+            console.warn("Audio play failed, likely due to browser policy requiring user interaction first.", error);
+            // Optionally provide feedback to the user that audio couldn't start automatically
+        });
+
+        setupAudioControls(); // Setup listeners for volume/mute
+        initializeLevel(currentLevel);
+        gameRunning = true;
+        gameLoop(); // Start the actual game loop
+    }
+
+    // --- Event Listener for Startknapp ---
+    startButton.addEventListener('click', startGame);
+
+
+    // --- Initialisering (samme som før, men kalt av startGame/levelComplete) ---
+    function initializeLevel(level) {
+        gameRunning = false; // Pause briefly while setting up
+        // Reset game elements
+        paddleWidth = PADDLE_BASE_WIDTH;
+        paddleX = (canvas.width - paddleWidth) / 2;
+        paddleLastX = paddleX;
+        paddleVelX = 0;
+        balls = [];
+        createBall(canvas.width / 2, canvas.height - PADDLE_HEIGHT - BALL_RADIUS - 5);
+        initializeBricks();
+        powerups = [];
+        particles = [];
+        // Clear active powerup timeouts (important for level transitions)
+        if (activePowerups.largerPaddle) clearTimeout(activePowerups.largerPaddle);
+        if (activePowerups.slowBall) clearTimeout(activePowerups.slowBall);
+        activePowerups = { largerPaddle: null, slowBall: null };
+
+        updateUI();
+        // Short delay before starting ball movement if needed, or let gameLoop handle it
+        // setTimeout(() => { gameRunning = true; }, 500); // Optional small delay
+         gameRunning = true; // Ready to run in gameLoop
+    }
+
+    // --- Resten av spillogikken (createBall, initializeBricks, Input Handlers, collisionDetection, Powerups, Particles, Tegnefunksjoner, movePaddle, moveBalls, movePowerups, updateUI, gameOver, levelComplete) ---
+    // --- INNSETT ALL SPILLOGIKK HER FRA FORRIGE VERSJON ---
+    // --- (Funksjonene fra "// --- Initialisering ---" ned til før "// --- Hoved Spill-Loop ---") ---
+    // ... (Lim inn koden for createBall, initializeBricks, keyDownHandler, etc. her) ...
+     function createBall(x, y, dx = 2, dy = -2) {
+        const speedMultiplier = 1 + (currentLevel - 1) * 0.1;
+        balls.push({
+            x: x, y: y,
+            dx: dx * speedMultiplier * (Math.random() < 0.5 ? 1 : -1),
+            dy: dy * speedMultiplier,
+            radius: BALL_RADIUS,
+            baseSpeed: Math.sqrt(dx*dx + dy*dy) * speedMultiplier
+        });
+    }
+     function initializeBricks() {
+        bricks = []; bricksRemaining = 0;
+        for(let c = 0; c < BRICK_COLUMN_COUNT; c++) {
+            bricks[c] = [];
+            for(let r = 0; r < BRICK_ROW_COUNT; r++) {
+                const brickX = (c * (BRICK_WIDTH + BRICK_PADDING)) + BRICK_OFFSET_LEFT;
+                const brickY = (r * (BRICK_HEIGHT + BRICK_PADDING)) + BRICK_OFFSET_TOP;
+                bricks[c][r] = { x: brickX, y: brickY, status: 1, color: BRICK_COLORS[r % BRICK_COLORS.length] };
+                bricksRemaining++;
+            }
+        }
+    }
+     document.addEventListener("keydown", keyDownHandler, false);
+    document.addEventListener("keyup", keyUpHandler, false);
+    document.addEventListener("mousemove", mouseMoveHandler, false);
+     function keyDownHandler(e) { if(e.key == "Right" || e.key == "ArrowRight") rightPressed = true; else if(e.key == "Left" || e.key == "ArrowLeft") leftPressed = true; }
+    function keyUpHandler(e) { if(e.key == "Right" || e.key == "ArrowRight") rightPressed = false; else if(e.key == "Left" || e.key == "ArrowLeft") leftPressed = false; }
+    function mouseMoveHandler(e) { const rect = canvas.getBoundingClientRect(); const root = document.documentElement; let relativeX = e.clientX - rect.left - root.scrollLeft; if (relativeX > paddleWidth / 2 && relativeX < canvas.width - paddleWidth / 2) { paddleX = relativeX - paddleWidth / 2; } else if (relativeX <= paddleWidth / 2) { paddleX = 0; } else { paddleX = canvas.width - paddleWidth; } }
+     function collisionDetection() {
+        balls.forEach((ball, ballIndex) => {
+            for(let c = 0; c < BRICK_COLUMN_COUNT; c++) {
+                for(let r = 0; r < BRICK_ROW_COUNT; r++) {
+                    let b = bricks[c][r];
+                    if(b.status == 1) {
+                        if(ball.x + ball.radius > b.x && ball.x - ball.radius < b.x + BRICK_WIDTH && ball.y + ball.radius > b.y && ball.y - ball.radius < b.y + BRICK_HEIGHT) {
+                            ball.dy = -ball.dy; b.status = 0; score += 10 * currentLevel; bricksRemaining--;
+                            createParticles(ball.x, ball.y, b.color);
+                            if (Math.random() < POWERUP_CHANCE) createPowerup(b.x + BRICK_WIDTH / 2, b.y + BRICK_HEIGHT / 2);
+                            if(bricksRemaining <= 0) levelComplete();
+                            updateUI(); // Update score immediately
+                            return;
+                        } } } } });
+        powerups.forEach((powerup, index) => {
+            if (powerup.y + POWERUP_SIZE > canvas.height - PADDLE_HEIGHT && powerup.x > paddleX && powerup.x < paddleX + paddleWidth) {
+                activatePowerup(powerup.type); powerups.splice(index, 1);
+            } });
+    }
+     function createPowerup(x, y) { const types = Object.values(PowerupType); const type = types[Math.floor(Math.random() * types.length)]; powerups.push({ x: x, y: y, type: type, color: POWERUP_COLORS[type] || '#FFFFFF' }); }
+    function activatePowerup(type) {
+        switch(type) {
+            case PowerupType.LARGER_PADDLE: if (activePowerups.largerPaddle) clearTimeout(activePowerups.largerPaddle); paddleWidth = PADDLE_BASE_WIDTH * 1.5; activePowerups.largerPaddle = setTimeout(() => { paddleWidth = PADDLE_BASE_WIDTH; activePowerups.largerPaddle = null; }, 10000); break;
+            case PowerupType.MULTI_BALL: if (balls.length < 5) { const origin = balls[Math.floor(Math.random()*balls.length)]; createBall(origin.x, origin.y, origin.dx + (Math.random()-0.5)*2, -Math.abs(origin.dy)); if (balls.length < 5) createBall(origin.x, origin.y, origin.dx + (Math.random()-0.5)*2, -Math.abs(origin.dy)); } break;
+            case PowerupType.SLOW_BALL: if (activePowerups.slowBall) clearTimeout(activePowerups.slowBall); balls.forEach(b => { b.dx *= 0.7; b.dy *= 0.7; }); activePowerups.slowBall = setTimeout(() => { balls.forEach(b => { const speed = Math.sqrt(b.dx*b.dx + b.dy*b.dy); const scale = b.baseSpeed / speed; if (speed > 0.1) { b.dx *= scale; b.dy *= scale; } else { b.dx = (Math.random() < 0.5 ? 1 : -1) * b.baseSpeed * 0.7; b.dy = -b.baseSpeed * 0.7; }}); activePowerups.slowBall = null; }, 8000); break;
+            case PowerupType.EXTRA_LIFE: if (lives < 5) lives++; updateUI(); break;
+        }
+        if (paddleX + paddleWidth > canvas.width) paddleX = canvas.width - paddleWidth;
+    }
+     function createParticles(x, y, color) { const count = 5 + Math.floor(Math.random() * 5); for (let i = 0; i < count; i++) particles.push({ x: x, y: y, dx: (Math.random() - 0.5) * 4, dy: (Math.random() - 0.5) * 4, radius: Math.random() * 2 + 1, lifespan: PARTICLE_LIFESPAN, color: color }); }
+    function updateParticles() { for (let i = particles.length - 1; i >= 0; i--) { let p = particles[i]; p.x += p.dx; p.y += p.dy; p.lifespan--; p.dx *= 0.98; p.dy *= 0.98; p.dy += 0.05; if (p.lifespan <= 0) particles.splice(i, 1); } }
+     function drawBackground() { const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height); gradient.addColorStop(0, BACKGROUND_GRADIENT[0]); gradient.addColorStop(0.5, BACKGROUND_GRADIENT[1]); gradient.addColorStop(1, BACKGROUND_GRADIENT[2]); ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+    function drawBalls() { balls.forEach(ball => { ctx.beginPath(); const gradient = ctx.createRadialGradient(ball.x - ball.radius*0.3, ball.y - ball.radius*0.3, ball.radius*0.1, ball.x, ball.y, ball.radius); gradient.addColorStop(0, BALL_COLOR.accent); gradient.addColorStop(1, BALL_COLOR.main); ctx.fillStyle = gradient; ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI*2); ctx.fill(); ctx.closePath(); }); }
+    function drawPaddle() { ctx.beginPath(); const gradient = ctx.createLinearGradient(paddleX, canvas.height - PADDLE_HEIGHT, paddleX, canvas.height); gradient.addColorStop(0, PADDLE_COLOR.accent); gradient.addColorStop(1, PADDLE_COLOR.main); ctx.fillStyle = gradient; const r = 5; ctx.moveTo(paddleX + r, canvas.height - PADDLE_HEIGHT); ctx.lineTo(paddleX + paddleWidth - r, canvas.height - PADDLE_HEIGHT); ctx.quadraticCurveTo(paddleX + paddleWidth, canvas.height - PADDLE_HEIGHT, paddleX + paddleWidth, canvas.height - PADDLE_HEIGHT + r); ctx.lineTo(paddleX + paddleWidth, canvas.height - r); ctx.quadraticCurveTo(paddleX + paddleWidth, canvas.height, paddleX + paddleWidth - r, canvas.height); ctx.lineTo(paddleX + r, canvas.height); ctx.quadraticCurveTo(paddleX, canvas.height, paddleX, canvas.height - r); ctx.lineTo(paddleX, canvas.height - PADDLE_HEIGHT + r); ctx.quadraticCurveTo(paddleX, canvas.height - PADDLE_HEIGHT, paddleX + r, canvas.height - PADDLE_HEIGHT); ctx.fill(); ctx.closePath(); }
+    function drawBricks() { for(let c = 0; c < BRICK_COLUMN_COUNT; c++) { for(let r = 0; r < BRICK_ROW_COUNT; r++) { if(bricks[c][r].status == 1) { let b = bricks[c][r]; ctx.beginPath(); ctx.rect(b.x, b.y, BRICK_WIDTH, BRICK_HEIGHT); const grad = ctx.createLinearGradient(b.x, b.y, b.x, b.y + BRICK_HEIGHT); grad.addColorStop(0, lightenColor(b.color, 20)); grad.addColorStop(1, darkenColor(b.color, 20)); ctx.fillStyle = grad; ctx.fill(); ctx.strokeStyle = darkenColor(b.color, 40); ctx.lineWidth = 1; ctx.stroke(); ctx.closePath(); } } } }
+    function drawParticles() { particles.forEach(p => { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.fillStyle = p.color; ctx.globalAlpha = Math.max(0, p.lifespan / PARTICLE_LIFESPAN); ctx.fill(); ctx.closePath(); }); ctx.globalAlpha = 1.0; }
+    function drawPowerups() { powerups.forEach(p => { ctx.beginPath(); ctx.rect(p.x - POWERUP_SIZE / 2, p.y - POWERUP_SIZE / 2, POWERUP_SIZE, POWERUP_SIZE); ctx.fillStyle = p.color; ctx.fill(); ctx.font = "bold 12px Arial"; ctx.fillStyle = "#FFFFFF"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; let s = '?'; if (p.type === PowerupType.LARGER_PADDLE) s = 'W'; else if (p.type === PowerupType.MULTI_BALL) s = 'M'; else if (p.type === PowerupType.SLOW_BALL) s = 'S'; else if (p.type === PowerupType.EXTRA_LIFE) s = 'L'; ctx.fillText(s, p.x, p.y + 1); ctx.closePath(); }); ctx.textAlign = "left"; ctx.textBaseline = "alphabetic"; }
+    function lightenColor(hex, percent) { hex = hex.replace(/^\s*#|\s*$/g, ''); if(hex.length == 3) hex = hex.replace(/(.)/g, '$1$1'); let r=parseInt(hex.substr(0,2),16), g=parseInt(hex.substr(2,2),16), b=parseInt(hex.substr(4,2),16); let f=1+(percent/100); r=Math.min(255,Math.round(r*f)); g=Math.min(255,Math.round(g*f)); b=Math.min(255,Math.round(b*f)); return "#"+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1); } function darkenColor(hex, percent) { return lightenColor(hex, -percent); }
+     function movePaddle() { paddleLastX = paddleX; if(rightPressed && paddleX < canvas.width - paddleWidth) paddleX += PADDLE_SPEED; else if(leftPressed && paddleX > 0) paddleX -= PADDLE_SPEED; if (paddleX < 0) paddleX = 0; if (paddleX + paddleWidth > canvas.width) paddleX = canvas.width - paddleWidth; paddleVelX = paddleX - paddleLastX; }
+    function moveBalls() {
+        balls.forEach((ball, index) => {
+            if(ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) { ball.dx = -ball.dx; createParticles(ball.x, ball.y, '#aaa'); }
+            if(ball.y + ball.dy < ball.radius) { ball.dy = -ball.dy; createParticles(ball.x, ball.y, '#aaa'); }
+            else if(ball.y + ball.radius >= canvas.height - PADDLE_HEIGHT && ball.y - ball.radius < canvas.height ) {
+                 if(ball.x + ball.radius > paddleX && ball.x - ball.radius < paddleX + paddleWidth && ball.dy > 0) {
+                    ball.dy = -ball.dy; let hitPos = (ball.x - (paddleX + paddleWidth / 2)) / (paddleWidth / 2); hitPos = Math.max(-1, Math.min(1, hitPos));
+                    const angleFactor = 1.5; ball.dx = ball.dx * 0.8 + hitPos * angleFactor * Math.abs(ball.dy);
+                    const spinFactor = 0.3; ball.dx += paddleVelX * spinFactor;
+                    const speed = Math.sqrt(ball.dx*ball.dx + ball.dy*ball.dy); const maxSpeed = ball.baseSpeed * 1.5;
+                    if (speed > maxSpeed) { const scale = maxSpeed / speed; ball.dx *= scale; ball.dy *= scale; }
+                    else if (speed < ball.baseSpeed * 0.8 && speed > 0.1) { const scale = (ball.baseSpeed * 0.8) / speed; ball.dx *= scale; ball.dy *= scale; }
+                    createParticles(ball.x, ball.y+ball.radius, PADDLE_COLOR.main);
+                } else if (ball.y + ball.radius > canvas.height) {
+                     balls.splice(index, 1);
+                     if (balls.length === 0) {
+                         lives--; updateUI();
+                         if(lives <= 0) gameOver();
+                         else { paddleX = (canvas.width - paddleWidth) / 2; createBall(canvas.width / 2, canvas.height - PADDLE_HEIGHT - BALL_RADIUS - 5); }
+                     } } }
+            ball.x += ball.dx; ball.y += ball.dy;
+        }); }
+    function movePowerups() { for (let i = powerups.length - 1; i >= 0; i--) { powerups[i].y += POWERUP_SPEED; if (powerups[i].y > canvas.height + POWERUP_SIZE) powerups.splice(i, 1); } }
+     function updateUI() { scoreElement.textContent = "Poeng: " + score; livesElement.textContent = "Liv: " + lives; levelElement.textContent = "Nivå: " + currentLevel; }
+    function gameOver() {
+        gameRunning = false;
+        if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop the loop
+        backgroundMusic.pause(); // Stop music
+         setTimeout(() => { // Delay slightly to ensure canvas updates
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.font = "40px Arial"; ctx.fillStyle = "red"; ctx.textAlign = "center";
+            ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2 - 20);
+            ctx.font = "20px Arial"; ctx.fillStyle = "white";
+            ctx.fillText(`Poeng: ${score} | Nivå: ${currentLevel}`, canvas.width/2, canvas.height/2 + 20);
+            // Optional: Add instructions to refresh (F5)
+             ctx.fillText("Trykk F5 for å prøve igjen", canvas.width/2, canvas.height/2 + 60);
+         }, 50); // 50ms delay
+    }
+    function levelComplete() {
+        gameRunning = false; // Stop game logic
+        if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop the loop for redraw
+        balls.forEach(ball => { ball.dx = 0; ball.dy = 0; }); // Stop balls
+
+         setTimeout(() => { // Delay slightly for effect
+            ctx.fillStyle = 'rgba(0, 80, 0, 0.7)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.font = "40px Arial"; ctx.fillStyle = "lime"; ctx.textAlign = "center";
+            ctx.fillText(`Nivå ${currentLevel} fullført!`, canvas.width/2, canvas.height/2 - 20);
+            ctx.font = "20px Arial"; ctx.fillStyle = "white";
+            ctx.fillText(`Poeng: ${score}`, canvas.width/2, canvas.height/2 + 20);
+            ctx.fillText("Gjør klar for neste nivå...", canvas.width/2, canvas.height/2 + 50);
+
+            // Go to next level after a pause
+            setTimeout(() => {
+                currentLevel++;
+                initializeLevel(currentLevel); // Setup next level (this sets gameRunning = true)
+                if (gameRunning) { // Ensure initializeLevel succeeded
+                   gameLoop(); // Start the loop again for the new level
+                }
+            }, 3000); // 3 seconds pause
+         }, 50); // 50ms delay for drawing the completion screen
+    }
+    // --- Hoved Spill-Loop ---
+    function gameLoop() {
+        if (!gameRunning) {
+             if (animationFrameId) cancelAnimationFrame(animationFrameId);
+             animationFrameId = null;
+             return; // Exit if game stopped
+        }
+
+        // 1. Oppdater spillstatus
+        movePaddle();
+        moveBalls();
+        movePowerups();
+        updateParticles();
+        collisionDetection(); // Sjekkes etter bevegelse
+
+        // 2. Tegn alt
+        drawBackground();
+        drawBricks();
+        drawParticles();
+        drawPowerups();
+        drawPaddle();
+        drawBalls();
+        // UI oppdateres via updateUI() ved endringer
+
+        // 3. Neste frame
+        animationFrameId = requestAnimationFrame(gameLoop); // Store the ID
+    }
+
+    // --- Initial Setup (uten å starte spillet) ---
+    // updateUI(); // Kan sette initiell UI tekst hvis UI er synlig fra start
+    // setupAudioControls(); // Kan settes opp her, men bedre etter start for volum?
+
+
+</script>
+
+</body>
+</html>

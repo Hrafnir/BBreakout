@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Test</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
+        #status { margin-top: 15px; font-weight: bold; min-height: 1.6em; background-color: #eee; padding: 5px;}
+        audio { margin-top: 15px; display: block; border: 1px solid #ccc; padding: 5px; }
+        button { padding: 10px 15px; font-size: 1em; cursor: pointer; margin-top: 10px;}
+        code { background-color: #f0f0f0; padding: 2px 4px; border-radius: 3px;}
+    </style>
+</head>
+<body>
+
+    <h1>Audio Playback Test</h1>
+    <p>Tester filen: <code>audio/BBreakout.mp3</code></p>
+    <p>Prøv først play-knappen på selve lydkontrollen under. Deretter prøv "Spill av med JavaScript"-knappen.</p>
+    <p>Sjekk statusfeltet under og konsollen (F12) for meldinger.</p>
+
+    <audio id="testMusic" controls preload="auto">
+        <source src="audio/BBreakout.mp3" type="audio/mpeg">
+        Nettleseren din støtter ikke audio-elementet.
+    </audio>
+
+    <button id="playButton">Spill av med JavaScript</button>
+
+    <div id="status">Klar til å teste...</div>
+
+    <script>
+        const audioElement = document.getElementById('testMusic');
+        const playButton = document.getElementById('playButton');
+        const statusDiv = document.getElementById('status');
+
+        function logStatus(message, isError = false) {
+            console[isError ? 'error' : 'log'](message);
+            statusDiv.textContent = message;
+            statusDiv.style.color = isError ? 'red' : 'black';
+        }
+
+        // --- Direkte Audio Element Hendelser ---
+        audioElement.addEventListener('error', (e) => {
+            const err = audioElement.error;
+            logStatus(`Audio Element Error: Kode=${err?.code}, Melding=${err?.message || 'Ukjent feil'}`, true);
+        });
+
+        audioElement.addEventListener('canplay', () => {
+            logStatus('Lydfil klar til avspilling (canplay).');
+        });
+
+         audioElement.addEventListener('canplaythrough', () => {
+            // Dette er bare en tilleggsinfo, ikke kritisk
+             console.log('Audio Event: canplaythrough (nok data til å spille uten stopp)');
+        });
+
+        audioElement.addEventListener('playing', () => {
+            logStatus('Avspilling pågår...');
+        });
+
+         audioElement.addEventListener('pause', () => {
+            if (!audioElement.ended) { // Ikke vis pause hvis den bare er ferdig
+               logStatus('Avspilling pauset.');
+            }
+        });
+
+        audioElement.addEventListener('ended', () => {
+            logStatus('Avspilling ferdig.');
+        });
+
+         audioElement.addEventListener('loadstart', () => { logStatus('Starter lasting av lydfil...'); });
+         audioElement.addEventListener('loadedmetadata', () => { console.log('Metadata lastet.'); });
+         audioElement.addEventListener('loadeddata', () => { console.log('Data lastet (første frame).'); });
+         audioElement.addEventListener('progress', () => { console.log('Laster ned data...'); }); // Kan gi mange meldinger
+         audioElement.addEventListener('stalled', () => { logStatus('Lydlasting stoppet opp (stalled).', true); });
+         audioElement.addEventListener('suspend', () => { logStatus('Lydlasting suspendert (muligens ferdig lastet i bakgrunnen).'); });
+
+
+        // --- Knapp for å starte avspilling ---
+        playButton.addEventListener('click', () => {
+            logStatus('Forsøker å spille av med JavaScript...');
+            console.log("Forsøker audioElement.play()...");
+
+            // Nullstill evt. tidligere feil før nytt forsøk
+            // audioElement.load(); // Kan prøves hvis det er rart, men starter lasting på nytt
+
+            const playPromise = audioElement.play();
+
+            if (playPromise !== undefined) {
+                playPromise.then(_ => {
+                    console.log('Audio play() Promise RESOLVED.');
+                    // Status settes av 'playing' eventen, så vi trenger ikke gjøre noe her
+                }).catch(error => {
+                    logStatus(`Avspillingsfeil (Promise): ${error.name} - ${error.message}`, true);
+                });
+            } else {
+                // Eldre nettlesere returnerer ikke promise
+                console.warn("Audio play() returnerte ikke et promise.");
+                // Vi må anta det funket hvis ingen 'error' event kommer
+                logStatus('Avspilling startet (eldre nettleser?)...');
+            }
+        });
+
+         logStatus("Audio test side lastet. Inspiser lydelementet og sjekk konsollen.");
+         console.log("Initial audio state:", `readyState=${audioElement.readyState}`, `networkState=${audioElement.networkState}`, `error=${audioElement.error}`);
+
+    </script>
+
+</body>
+</html>

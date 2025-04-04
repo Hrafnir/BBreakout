@@ -2,9 +2,9 @@
 <html>
 <head>
 <meta charset="utf-8" />
-<title>BBreakout v1.8 - Separate Audio Controls</title>
+<title>BBreakout v1.9 - Fixed Initialization Order</title>
 <style>
-    /* CSS KODE (samme som før, men justert audioControls) */
+    /* CSS KODE (uendret fra v1.8) */
     body { background: #222; margin: 0; padding: 20px 0; display: flex; justify-content: center; min-height: 100vh; font-family: Arial, sans-serif; color: #fff; overflow: hidden; }
     #gameContainer { position: relative; width: 800px; display: flex; flex-direction: column; align-items: center; }
     canvas { display: block; border: 1px solid #555; }
@@ -16,41 +16,12 @@
     #startButton:active { background-color: #3e8e41; box-shadow: 0 2px #666; transform: translateY(2px); }
     #versionText { position: absolute; bottom: 15px; right: 15px; font-size: 14px; color: rgba(255, 255, 255, 0.7); }
     #uiContainer { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 8px 15px; background: rgba(0,0,0,0.6); box-sizing: border-box; border-bottom-left-radius: 5px; border-bottom-right-radius: 5px; margin-top: -1px; height: 50px; }
-    #gameInfo { display: flex; gap: 20px; flex-shrink: 0; } /* Ikke la denne krympe */
-
-    /* Justert layout for flere lydkontroller */
-    #audioControlsContainer {
-        display: flex;
-        gap: 15px; /* Mellomrom mellom musikk- og SFX-kontroller */
-        align-items: center;
-        flex-wrap: nowrap; /* Unngå wrapping */
-    }
-    .audioControlGroup {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .audioControlGroup label {
-         font-size: 14px;
-         margin-right: -3px;
-         white-space: nowrap; /* Unngå label wrapping */
-    }
-    .volumeSlider { /* Felles klasse for slidere */
-        width: 70px; /* Litt smalere slider */
-        cursor: pointer;
-        accent-color: #0095DD;
-    }
-    .muteButton { /* Felles klasse for mute-knapper */
-        padding: 5px 8px; /* Litt mindre padding */
-        font-size: 12px;
-        cursor: pointer;
-        background-color: #0077AA;
-        color: white;
-        border: none;
-        border-radius: 3px;
-        min-width: 55px; /* Litt smalere knapp */
-        text-align: center;
-    }
+    #gameInfo { display: flex; gap: 20px; flex-shrink: 0; }
+    #audioControlsContainer { display: flex; gap: 15px; align-items: center; flex-wrap: nowrap; }
+    .audioControlGroup { display: flex; align-items: center; gap: 8px; }
+    .audioControlGroup label { font-size: 14px; margin-right: -3px; white-space: nowrap; }
+    .volumeSlider { width: 70px; cursor: pointer; accent-color: #0095DD; }
+    .muteButton { padding: 5px 8px; font-size: 12px; cursor: pointer; background-color: #0077AA; color: white; border: none; border-radius: 3px; min-width: 55px; text-align: center; }
     .muteButton:hover { background-color: #005588; }
 </style>
 </head>
@@ -59,24 +30,14 @@
 <div id="gameContainer">
     <div id="startScreen">
          <div id="startScreenContent"> <button id="startButton">Start Spillet</button> </div>
-        <div id="versionText">Versjon 1.8</div>
-    </div>
+        <div id="versionText">Versjon 1.9</div> </div>
     <canvas id="gameCanvas" width="800" height="600" class="hidden"></canvas>
     <div id="uiContainer" class="hidden">
         <div id="gameInfo"> <span id="score">Poeng: 0</span> <span id="lives">Liv: 3</span> <span id="level">Nivå: 1</span> </div>
-
         <div id="audioControlsContainer">
-            <div class="audioControlGroup">
-                 <label for="musicVolumeSlider">Musikk:</label>
-                 <input type="range" id="musicVolumeSlider" class="volumeSlider" min="0" max="100" value="20">
-                 <button id="musicMuteButton" class="muteButton">Mute</button>
-            </div>
-            <div class="audioControlGroup">
-                <label for="sfxVolumeSlider">Effekter:</label>
-                <input type="range" id="sfxVolumeSlider" class="volumeSlider" min="0" max="100" value="30"> <button id="sfxMuteButton" class="muteButton">Mute</button>
-            </div>
+            <div class="audioControlGroup"> <label for="musicVolumeSlider">Musikk:</label> <input type="range" id="musicVolumeSlider" class="volumeSlider" min="0" max="100" value="20"> <button id="musicMuteButton" class="muteButton">Mute</button> </div>
+            <div class="audioControlGroup"> <label for="sfxVolumeSlider">Effekter:</label> <input type="range" id="sfxVolumeSlider" class="volumeSlider" min="0" max="100" value="30"> <button id="sfxMuteButton" class="muteButton">Mute</button> </div>
         </div>
-
     </div>
 </div>
 
@@ -86,173 +47,92 @@
 <audio id="wallSound" preload="auto"> <source src="audio/wall.wav" type="audio/wav">...</audio>
 
 <script>
-    // --- DOM Element References ---
-    const canvas = document.getElementById('gameCanvas'); const ctx = canvas.getContext('2d');
-    const scoreElement = document.getElementById('score'); const livesElement = document.getElementById('lives'); const levelElement = document.getElementById('level');
-    const startScreen = document.getElementById('startScreen'); const startButton = document.getElementById('startButton');
-    const uiContainer = document.getElementById('uiContainer'); const versionText = document.getElementById('versionText');
-
-    // Musikk Kontroller
+    // --- DOM Element References (Først) ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d'); // Trenger canvas for context
+    const scoreElement = document.getElementById('score');
+    const livesElement = document.getElementById('lives');
+    const levelElement = document.getElementById('level');
+    const startScreen = document.getElementById('startScreen');
+    const startButton = document.getElementById('startButton');
+    const uiContainer = document.getElementById('uiContainer');
+    const versionText = document.getElementById('versionText');
     const musicVolumeSlider = document.getElementById('musicVolumeSlider');
     const musicMuteButton = document.getElementById('musicMuteButton');
-
-    // SFX Kontroller
     const sfxVolumeSlider = document.getElementById('sfxVolumeSlider');
     const sfxMuteButton = document.getElementById('sfxMuteButton');
-
-    // Audio Elements
     const backgroundMusic = document.getElementById('backgroundMusic');
     const hitSound = document.getElementById('hitSound');
     const paddleSound = document.getElementById('paddleSound');
     const wallSound = document.getElementById('wallSound');
 
-    // Separate arrays for control
+    // --- Audio Element Array (etter referanser) ---
     const backgroundMusicArray = [backgroundMusic];
     const sfxSoundArray = [hitSound, paddleSound, wallSound];
 
-    // --- Spillkonstanter og Variabler ---
-    const VERSION = "1.8";
-    const CANVAS_WIDTH = canvas.width; const CANVAS_HEIGHT = canvas.height;
-    // ... (resten av spillkonstantene uendret) ...
-    const INITIAL_MUSIC_VOLUME = 0.2; // Startvolum for musikk
-    const INITIAL_SFX_VOLUME = 0.3;   // Startvolum for SFX (50% høyere enn 0.2)
+    // --- Spillkonstanter (etter referanser, før variabler som bruker dem) ---
+    const VERSION = "1.9"; // Nytt versjonsnummer
+    const CANVAS_WIDTH = canvas.width; // Bruker canvas referansen
+    const CANVAS_HEIGHT = canvas.height;
+    const PADDLE_HEIGHT = 15;
+    const PADDLE_BASE_WIDTH = 120; // *** DEFINERT HER NÅ ***
+    const PADDLE_SPEED = 10;
+    const BALL_RADIUS = 10;
+    const INITIAL_BALL_SPEED = 4.5;
+    const BRICK_WIDTH = 65;
+    const BRICK_HEIGHT = 20;
+    const BRICK_PADDING = 8;
+    const BRICK_OFFSET_TOP = 50;
+    const PARTICLE_LIFESPAN = 30;
+    const POWERUP_CHANCE = 0.15;
+    const POWERUP_SPEED = 2.0;
+    const POWERUP_SIZE = 18;
+    const INITIAL_MUSIC_VOLUME = 0.2;
+    const INITIAL_SFX_VOLUME = 0.3;
+    const BRICK_HEALTH_COLORS = { 4: "#FF1493", 3: "#8333FF", 2: "#FF8D33", 1: "#FFC300", };
+    const BRICK_DEFAULT_COLOR = "#DAF7A6";
+    const PADDLE_COLOR = { main: '#0095DD', accent: '#00CFFF' };
+    const BALL_COLOR = { main: '#FFFFFF', accent: '#DDDDDD' };
+    const BACKGROUND_GRADIENT = ['#111', '#333', '#111'];
+    const PARTICLE_COLORS = ["#FFA07A", "#FF7F50", "#FF6347", "#FF4500"];
+    const POWERUP_COLORS = { 'LARGER_PADDLE': '#33FF57', 'MULTI_BALL': '#FFC300', 'SLOW_BALL': '#33D4FF', 'EXTRA_LIFE': '#FF5733' };
+    const LEVELS = [ [[1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1],[0,0,1,1,1,1,1,1,0,0],[0,0,0,1,1,1,1,0,0,0]], [[2,2,2,2,2,2,2,2,2,2],[1,1,1,1,1,1,1,1,1,1],[0,1,2,2,2,2,2,2,1,0],[0,1,1,1,1,1,1,1,1,0],[0,0,0,1,1,1,1,0,0,0]], [[1,2,3,3,3,3,3,3,2,1],[1,2,0,0,0,0,0,0,2,1],[1,2,0,2,2,2,2,0,2,1],[0,1,2,1,1,1,1,2,1,0],[0,0,1,1,1,1,1,1,0,0]], [[3,3,3,3,3,3,3,3,3,3],[2,2,2,2,2,2,2,2,2,2],[3,0,3,0,3,0,3,0,3,0],[2,0,2,0,2,0,2,0,2,0],[1,1,1,1,1,1,1,1,1,1]] ];
+    const PowerupType = { LARGER_PADDLE: 'LARGER_PADDLE', MULTI_BALL: 'MULTI_BALL', SLOW_BALL: 'SLOW_BALL', EXTRA_LIFE: 'EXTRA_LIFE' };
 
-    // Spillstatus (uendret)
-    let paddleWidth = PADDLE_BASE_WIDTH; let paddleX = (CANVAS_WIDTH - paddleWidth) / 2; let paddleLastX = paddleX; let paddleVelX = 0;
+    // --- Spillstatus Variabler (etter konstanter) ---
+    let paddleWidth = PADDLE_BASE_WIDTH; // Nå er PADDLE_BASE_WIDTH definert
+    let paddleX = (CANVAS_WIDTH - paddleWidth) / 2; // Nå er CANVAS_WIDTH og paddleWidth definert
+    let paddleLastX = paddleX; let paddleVelX = 0;
     let rightPressed = false; let leftPressed = false;
     let balls = []; let bricks = []; let particles = []; let powerups = [];
     let score = 0; let lives = 3; let currentLevel = 1;
     let gameRunning = false; let gamePaused = false; let bricksRemaining = 0;
     let activePowerups = { largerPaddle: null, slowBall: null }; let animationFrameId = null;
-
-    // Lydstatus
     let isMusicMuted = false; let lastMusicVolume = INITIAL_MUSIC_VOLUME;
     let isSfxMuted = false; let lastSfxVolume = INITIAL_SFX_VOLUME;
 
-    const PowerupType = { /* ... */ }; const LEVELS = [ /* ... */ ];
-    const BRICK_HEALTH_COLORS = { /* ... */ }; const BRICK_DEFAULT_COLOR = "#DAF7A6";
-    // ... (resten av fargekonstanter etc. uendret) ...
 
-    // --- Lydkontroll Funksjoner (Oppdatert/Nye) ---
+    // --- Lydkontroll Funksjoner ---
+    function playSound(soundElement) { if (!soundElement || typeof soundElement.play !== 'function') { return; } if (isSfxMuted) return; try { soundElement.currentTime = 0; const playPromise = soundElement.play(); if (playPromise !== undefined) { playPromise.catch(error => { if (error.name !== 'NotAllowedError' && error.name !== 'AbortError') { console.error(`Audio play failed:`, error); } }); } } catch (e) { console.error(`Error trying to play sound:`, e); } }
+    function setMusicVolume(volume) { lastMusicVolume = volume; backgroundMusicArray.forEach(sound => { if (sound) { try { sound.volume = volume; } catch (e) { /*...*/ } } }); }
+    function setSfxVolume(volume) { lastSfxVolume = volume; sfxSoundArray.forEach(sound => { if (sound) { try { sound.volume = volume; } catch (e) { /*...*/ } } }); }
+    function toggleMusicMute() { isMusicMuted = !isMusicMuted; if (isMusicMuted) { backgroundMusicArray.forEach(sound => { if (sound) sound.volume = 0; }); musicMuteButton.textContent = "Unmute"; } else { setMusicVolume(lastMusicVolume); musicVolumeSlider.value = lastMusicVolume * 100; musicMuteButton.textContent = "Mute"; } }
+    function toggleSfxMute() { isSfxMuted = !isSfxMuted; if (isSfxMuted) { sfxSoundArray.forEach(sound => { if (sound) sound.volume = 0; }); sfxMuteButton.textContent = "Unmute"; } else { setSfxVolume(lastSfxVolume); sfxVolumeSlider.value = lastSfxVolume * 100; sfxMuteButton.textContent = "Mute"; } }
+    function setupAudioControls() { try { setMusicVolume(INITIAL_MUSIC_VOLUME); musicVolumeSlider.value = INITIAL_MUSIC_VOLUME * 100; lastMusicVolume = INITIAL_MUSIC_VOLUME; isMusicMuted = false; musicMuteButton.textContent = "Mute"; setSfxVolume(INITIAL_SFX_VOLUME); sfxVolumeSlider.value = INITIAL_SFX_VOLUME * 100; lastSfxVolume = INITIAL_SFX_VOLUME; isSfxMuted = false; sfxMuteButton.textContent = "Mute"; musicVolumeSlider.oninput = null; musicMuteButton.onclick = null; sfxVolumeSlider.oninput = null; sfxMuteButton.onclick = null; musicVolumeSlider.oninput = (e) => { const newVolume = e.target.value / 100; setMusicVolume(newVolume); if (newVolume > 0 && isMusicMuted) { isMusicMuted = false; musicMuteButton.textContent = "Mute"; } else if (newVolume === 0 && !isMusicMuted) { isMusicMuted = true; musicMuteButton.textContent = "Unmute"; } }; musicMuteButton.onclick = toggleMusicMute; sfxVolumeSlider.oninput = (e) => { const newVolume = e.target.value / 100; setSfxVolume(newVolume); if (newVolume > 0 && isSfxMuted) { isSfxMuted = false; sfxMuteButton.textContent = "Mute"; } else if (newVolume === 0 && !isSfxMuted) { isSfxMuted = true; sfxMuteButton.textContent = "Unmute"; } }; sfxMuteButton.onclick = toggleSfxMute; /*console.log("Audio controls setup complete.");*/ } catch (error) { console.error("Error setting up audio controls:", error); } }
 
-    // Spiller av KUN lydeffekter, respekterer SFX mute
-    function playSound(soundElement) {
-        if (!soundElement || typeof soundElement.play !== 'function') { return; }
-        // *** Sjekker nå isSfxMuted ***
-        if (isSfxMuted) return;
-        try {
-            soundElement.currentTime = 0;
-            const playPromise = soundElement.play();
-            if (playPromise !== undefined) {
-                playPromise.catch(error => { if (error.name !== 'NotAllowedError' && error.name !== 'AbortError') { console.error(`Audio play failed:`, error); } });
-            }
-        } catch (e) { console.error(`Error trying to play sound:`, e); }
-    }
+    // --- Start Spillet Funksjon ---
+    function startGame() { /* ... (uendret fra v1.8) ... */ }
 
-    // Setter volum KUN for musikk
-    function setMusicVolume(volume) {
-        lastMusicVolume = volume;
-        backgroundMusicArray.forEach(sound => {
-            if (sound) { try { sound.volume = volume; } catch (e) { /*...*/ } }
-        });
-    }
+    // --- Initialisering ---
+    function initializeLevel(level) { /* ... (uendret fra v1.8) ... */ }
+    function createBall(x, y, dx, dy) { /* ... (uendret fra v1.8) ... */ }
+    function initializeBricks() { /* ... (uendret fra v1.8, inkluderer fix) ... */ }
 
-    // Setter volum KUN for SFX
-    function setSfxVolume(volume) {
-        lastSfxVolume = volume;
-        sfxSoundArray.forEach(sound => {
-            if (sound) { try { sound.volume = volume; } catch (e) { /*...*/ } }
-        });
-    }
-
-    // Muter/Unmuter KUN musikk
-    function toggleMusicMute() {
-        isMusicMuted = !isMusicMuted;
-        if (isMusicMuted) {
-            backgroundMusicArray.forEach(sound => { if (sound) sound.volume = 0; });
-            musicMuteButton.textContent = "Unmute";
-        } else {
-            setMusicVolume(lastMusicVolume); // Gjenopprett volum
-            musicVolumeSlider.value = lastMusicVolume * 100;
-            musicMuteButton.textContent = "Mute";
-        }
-    }
-
-    // Muter/Unmuter KUN SFX
-    function toggleSfxMute() {
-        isSfxMuted = !isSfxMuted;
-        if (isSfxMuted) {
-            sfxSoundArray.forEach(sound => { if (sound) sound.volume = 0; });
-            sfxMuteButton.textContent = "Unmute";
-        } else {
-            setSfxVolume(lastSfxVolume); // Gjenopprett volum
-            sfxVolumeSlider.value = lastSfxVolume * 100;
-            sfxMuteButton.textContent = "Mute";
-        }
-    }
-
-    // Oppdatert for å håndtere begge kontrollsettene
-    function setupAudioControls() {
-        console.log("Setting up audio controls (Music & SFX)...");
-        try {
-            // --- Musikk Initialisering ---
-            setMusicVolume(INITIAL_MUSIC_VOLUME);
-            musicVolumeSlider.value = INITIAL_MUSIC_VOLUME * 100;
-            lastMusicVolume = INITIAL_MUSIC_VOLUME;
-            isMusicMuted = false;
-            musicMuteButton.textContent = "Mute";
-
-            // --- SFX Initialisering ---
-            setSfxVolume(INITIAL_SFX_VOLUME);
-            sfxVolumeSlider.value = INITIAL_SFX_VOLUME * 100;
-            lastSfxVolume = INITIAL_SFX_VOLUME;
-            isSfxMuted = false;
-            sfxMuteButton.textContent = "Mute";
-
-            // --- Fjern gamle listeners (for sikkerhets skyld) ---
-            musicVolumeSlider.oninput = null; musicMuteButton.onclick = null;
-            sfxVolumeSlider.oninput = null; sfxMuteButton.onclick = null;
-
-            // --- Musikk Listeners ---
-            musicVolumeSlider.oninput = (e) => {
-                const newVolume = e.target.value / 100;
-                setMusicVolume(newVolume);
-                if (newVolume > 0 && isMusicMuted) { isMusicMuted = false; musicMuteButton.textContent = "Mute"; }
-                else if (newVolume === 0 && !isMusicMuted) { isMusicMuted = true; musicMuteButton.textContent = "Unmute"; }
-            };
-            musicMuteButton.onclick = toggleMusicMute;
-
-            // --- SFX Listeners ---
-            sfxVolumeSlider.oninput = (e) => {
-                const newVolume = e.target.value / 100;
-                setSfxVolume(newVolume);
-                if (newVolume > 0 && isSfxMuted) { isSfxMuted = false; sfxMuteButton.textContent = "Mute"; }
-                else if (newVolume === 0 && !isSfxMuted) { isSfxMuted = true; sfxMuteButton.textContent = "Unmute"; }
-            };
-            sfxMuteButton.onclick = toggleSfxMute;
-
-            console.log("Audio controls setup complete.");
-
-        } catch (error) {
-             console.error("Error setting up audio controls:", error);
-        }
-    }
-
-    // --- Start Spillet Funksjon (uendret) ---
-    function startGame() { console.log("--- startGame called ---"); startScreen.classList.add('hidden'); canvas.classList.remove('hidden'); uiContainer.classList.remove('hidden'); console.log("Setting up audio controls..."); setupAudioControls(); console.log("Attempting to play background music..."); playSound(backgroundMusic); console.log("Resetting game state..."); score = 0; lives = 3; currentLevel = 1; gamePaused = false; gameRunning = true; console.log("Initializing level 1..."); initializeLevel(currentLevel); console.log("Checking animationFrameId before starting loop:", animationFrameId); if (!animationFrameId) { console.log("Starting game loop..."); gameLoop(); } else { console.warn("startGame: gameLoop seems to be already running? ID:", animationFrameId); cancelAnimationFrame(animationFrameId); animationFrameId = null; console.log("Restarting game loop forcefully."); gameLoop(); } console.log("--- startGame finished ---"); }
-    startButton.addEventListener('click', startGame);
-    versionText.textContent = `Versjon ${VERSION}`;
-
-    // --- Initialisering (uendret) ---
-    function initializeLevel(level) { /* ... */ }
-    function createBall(x, y, dx, dy) { /* ... */ }
-    function initializeBricks() { /* ... (med fix fra v1.6) ... */ }
-
-    // --- Input Handlers (uendret) ---
+    // --- Input Handlers ---
     document.addEventListener("keydown", keyDownHandler, false); /* ... */ function keyUpHandler(e) { /* ... */ } function mouseMoveHandler(e) { /* ... */ }
 
-    // --- Collision Detection (uendret) ---
-    function collisionDetection() { /* ... (kaller playSound(hitSound)) ... */ }
+    // --- Collision Detection ---
+    function collisionDetection() { /* ... (uendret fra v1.8) ... */ }
 
     // --- Resten av spillogikk (uendret) ---
     function createPowerup(x, y) { /* ... */ } function activatePowerup(type) { /* ... */ } function createParticles(x, y, color) { /* ... */ } function updateParticles() { /* ... */ }
@@ -261,9 +141,9 @@
     function drawBackground() { /* ... */ } function drawPaddle() { /* ... */ } function drawBalls() { /* ... */ } function drawBricks() { /* ... */ } function drawParticles() { /* ... */ } function drawPowerups() { /* ... */ }
     function lightenColor(hex, percent) { /* ... (med fix fra v1.6) ... */ } function darkenColor(hex, percent) { /* ... */ }
 
-    // --- Bevegelsesfunksjoner (uendret, kaller playSound for vegg/paddle) ---
+    // --- Bevegelsesfunksjoner ---
     function movePaddle() { /* ... */ }
-    function moveBalls() { /* ... (kaller playSound(wallSound) og playSound(paddleSound)) ... */ }
+    function moveBalls() { /* ... (med fix fra v1.7 for vegglyd) ... */ }
     function movePowerups() { /* ... */ }
     function updateUI() { /* ... */ }
 
@@ -273,10 +153,11 @@
     // --- Hoved Spill-Loop (uendret) ---
     function gameLoop() { /* ... */ }
 
-    // --- Initial Setup ---
+    // --- Initial Setup Calls (etter alle definisjoner) ---
     console.log(`BBreakout ${VERSION} Script loaded. Waiting for start button click.`);
-    // Viktig: Kjør setup FØR start, men IKKE spill musikk ennå
-    setupAudioControls();
+    setupAudioControls(); // Sett opp kontroller og initielt volum
+    versionText.textContent = `Versjon ${VERSION}`; // Oppdater versjonstekst på startskjerm
+    startButton.addEventListener('click', startGame); // Legg til listener for startknapp
 
 </script>
 
